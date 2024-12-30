@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 ENV["RAILS_ENV"] = "test"
 ENV["upload_provider"] = "file"
 
@@ -13,12 +11,14 @@ require "rails/test_help"
 require "minitest/autorun"
 require "mocha/minitest"
 require "sidekiq/testing"
-require_relative "./support/model"
+require_relative "support/model"
 
 FileUtils.mkdir_p(Rails.root.join("tmp/cache"))
 
 OmniAuth.config.test_mode = true
+OmniAuth.logger.level = Logger::INFO
 FactoryBot.use_parent_strategy = false
+Sidekiq.logger.level = Logger::ERROR
 
 class ActiveSupport::TestCase
   include FactoryBot::Syntax::Methods
@@ -30,6 +30,7 @@ class ActiveSupport::TestCase
   end
 
   setup do
+    setup_test_db!
     Setting.stubs(:captcha_enable?).returns(true)
     Setting.stubs(:topic_create_limit_interval).returns("")
     Setting.stubs(:topic_create_hour_limit_count).returns("")
@@ -69,8 +70,12 @@ class ActiveSupport::TestCase
     end
   end
 
-  def fixture_file_upload(name, content_type = "text/plain")
-    Rack::Test::UploadedFile.new(File.join("test", "fixtures", "files", name), content_type)
+  def fixture_file_upload(name, content_type = "image/png")
+    ActionDispatch::Http::UploadedFile.new(
+      filename: name,
+      type: content_type,
+      tempfile: File.new(File.join("test", "fixtures", "files", name))
+    )
   end
 end
 
